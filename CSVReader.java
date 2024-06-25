@@ -69,15 +69,16 @@ public class CSVReader {
 
             switch (ch) {
                 case '\n':
-                    line++;
-                    column = 0;
                     if (!insideQuote) {
                         if (fieldStarted || currentField.length() > 0) {
                             fields.add(currentField.toString());
                         }
                         return fields.toArray(new String[0]);
+                    } else {
+                        currentField.append((char) ch);
+                        line++;
+                        column = 0;
                     }
-                    currentField.append((char) ch);
                     break;
                 case '\r':
                     // Ignore carriage return
@@ -104,17 +105,24 @@ public class CSVReader {
                             column--;
                         }
                     } else {
+                        if (currentField.length() > 0) {
+                            throw new CSVFormatException("Unexpected quote inside unquoted field", line, column, line, field);
+                        }
                         insideQuote = true;
                         fieldStarted = true;
                     }
                     break;
                 default:
-                    if (!fieldStarted) {
+                    if (insideQuote || !Character.isWhitespace(ch) || fieldStarted) {
+                        currentField.append((char) ch);
                         fieldStarted = true;
                     }
-                    currentField.append((char) ch);
                     break;
             }
+        }
+
+        if (insideQuote) {
+            throw new CSVFormatException("Unterminated quoted field", line, column, line, field);
         }
 
         if (currentField.length() > 0 || fieldStarted) {
@@ -127,8 +135,6 @@ public class CSVReader {
 
         return fields.toArray(new String[0]);
     }
-
-
     /**
      * Feel free to edit this method for your own testing purposes. As given, it
      * simply processes the CSV file supplied on the command line and prints each
